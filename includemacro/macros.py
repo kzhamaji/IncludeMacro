@@ -11,11 +11,13 @@
 
 import urllib2
 from StringIO import StringIO
+import os.path
 
 from genshi.core import escape
 from genshi.filters.html import HTMLSanitizer
 from genshi.input import HTMLParser, ParseError
 from trac.core import Component, TracError, implements
+from trac.env import open_environment
 from trac.mimeview.api import Mimeview, get_mimetype, Context
 from trac.perm import IPermissionRequestor
 from trac.resource import ResourceNotFound
@@ -104,8 +106,26 @@ class IncludeMacro(WikiMacroBase):
                                                            referrer)
                 else:
                     page_name = _resolve_scoped_name(ws, page_name, referrer)
+
+	    env = self.env
+	    elms = page_name.split(':', 1)
+	    if len(elms) == 2:
+		proj = elms[0]
+		proj = self.env.config['intertrac'].get(proj, proj)
+		url = self.env.config['intertrac'].get(proj + '.url')
+		if url:
+		    page_name = elms[1]
+		    proj = os.path.basename(url)
+		    parent, myproj = os.path.split(self.env.path)
+		    if proj != myproj:
+			env_path = os.path.join(parent, proj)
+			try:
+			    env = open_environment(env_path, use_cache=True)
+			except Exception, e:
+			    msg = _('fail to open environment "%(env)s"', env=proj)
+			    return system_message(e)
             try:
-                page = WikiPage(self.env, page_name, page_version)
+                page = WikiPage(env, page_name, page_version)
             except (TypeError, ValueError), e:  # Trac < 1.2 (Trac:#11544)
                 msg = _('"%(version)s" is not a valid wiki page version.',
                         version=page_version)
