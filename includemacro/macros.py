@@ -88,6 +88,25 @@ class IncludeMacro(WikiMacroBase):
             # XXX: Check for recursion in page includes. <NPK>
             page_name, page_version = _split_path(source_obj)
             referrer = ''
+
+	    env = self.env
+	    elms = page_name.split(':', 1)
+	    if len(elms) == 2:
+		proj = elms[0]
+		proj = self.env.config['intertrac'].get(proj, proj)
+		url = self.env.config['intertrac'].get(proj + '.url')
+		if url:
+		    page_name = elms[1]
+		    proj = os.path.basename(url)
+		    parent, myproj = os.path.split(self.env.path)
+		    if proj != myproj:
+			env_path = os.path.join(parent, proj)
+			try:
+			    env = open_environment(env_path, use_cache=True)
+			except Exception, e:
+			    msg = _('fail to open environment "%(env)s"', env=proj)
+			    return system_message(e)
+
             # Relative link resolution adapted from Trac 1.1.2dev.
             # Hint: Only attempt this in wiki rendering context.
             if formatter.resource and formatter.resource.realm == 'wiki':
@@ -107,23 +126,6 @@ class IncludeMacro(WikiMacroBase):
                 else:
                     page_name = _resolve_scoped_name(ws, page_name, referrer)
 
-	    env = self.env
-	    elms = page_name.split(':', 1)
-	    if len(elms) == 2:
-		proj = elms[0]
-		proj = self.env.config['intertrac'].get(proj, proj)
-		url = self.env.config['intertrac'].get(proj + '.url')
-		if url:
-		    page_name = elms[1]
-		    proj = os.path.basename(url)
-		    parent, myproj = os.path.split(self.env.path)
-		    if proj != myproj:
-			env_path = os.path.join(parent, proj)
-			try:
-			    env = open_environment(env_path, use_cache=True)
-			except Exception, e:
-			    msg = _('fail to open environment "%(env)s"', env=proj)
-			    return system_message(e)
             try:
                 page = WikiPage(env, page_name, page_version)
             except (TypeError, ValueError), e:  # Trac < 1.2 (Trac:#11544)
